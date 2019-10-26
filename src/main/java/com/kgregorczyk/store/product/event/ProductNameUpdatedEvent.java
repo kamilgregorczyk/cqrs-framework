@@ -1,27 +1,34 @@
 package com.kgregorczyk.store.product.event;
 
-import com.kgregorczyk.store.cqrs.aggregate.Id;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.google.auto.value.AutoValue;
 import com.kgregorczyk.store.cqrs.event.DomainEvent;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
-
 import java.time.Instant;
-import java.util.UUID;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+@AutoValue
+@JsonDeserialize(builder = AutoValue_ProductNameUpdatedEvent.Builder.class)
+public abstract class ProductNameUpdatedEvent extends DomainEvent<ProductAggregate> {
 
-@Getter
-@EqualsAndHashCode(callSuper = true)
-@ToString
-public class ProductNameUpdatedEvent extends DomainEvent<ProductAggregate> {
-  private final String name;
+  public static Builder aProductNameUpdatedEvent(boolean isPending) {
+    return new AutoValue_ProductNameUpdatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
+  }
 
-  @Builder
-  public ProductNameUpdatedEvent(Id<ProductAggregate> id, String name) {
-    super(checkNotNull(id), UUID.randomUUID(), Instant.now());
-    this.name = checkNotNull(name);
+  @JsonProperty("name")
+  public abstract String name();
+
+  public abstract Builder toBuilder();
+
+  @AutoValue.Builder
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPOJOBuilder(withPrefix = "")
+  public abstract static class Builder extends DomainEvent.Builder<Builder, ProductAggregate> {
+
+    public abstract Builder name(String value);
+
+    public abstract ProductNameUpdatedEvent build();
   }
 }

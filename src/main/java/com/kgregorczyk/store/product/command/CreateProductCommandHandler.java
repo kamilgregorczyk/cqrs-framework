@@ -1,15 +1,13 @@
 package com.kgregorczyk.store.product.command;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.kgregorczyk.store.cqrs.command.DomainCommandHandler;
 import com.kgregorczyk.store.cqrs.command.DomainCommandPublisher;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
+import java.math.BigDecimal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 @Component
 public class CreateProductCommandHandler
@@ -22,13 +20,9 @@ public class CreateProductCommandHandler
 
   @Override
   protected void validateCommand(CreateProductCommand command) {
-    checkNotNull(command.getName());
-    checkNotNull(command.getPrice());
-    checkNotNull(command.getId());
-    checkArgument(
-        command.getName().length() > 3, "Product's name has to have 4 or more characters");
-    checkArgument(
-        command.getPrice().compareTo(BigDecimal.ZERO) > 0, "Price has to be higher than 0.0");
+    checkArgument(command.name().length() > 3, "Product's name has to have 4 or more characters");
+    checkArgument(command.price().compareTo(BigDecimal.ZERO) > 0,
+        "Price has to be higher than 0.0");
   }
 
   @Override

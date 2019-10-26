@@ -1,25 +1,39 @@
 package com.kgregorczyk.store.cqrs.aggregate;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.UUID;
-
 import static java.util.UUID.randomUUID;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-public class Id<A extends Aggregate> {
-  private Class<A> type;
-  private UUID uuid;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.google.auto.value.AutoValue;
+import java.util.UUID;
 
-  public static <V extends Aggregate> Id<V> id(Class<V> type, UUID uuid) {
-    return new Id<>(type, uuid);
+@AutoValue
+@JsonDeserialize(builder = AutoValue_Id.Builder.class)
+public abstract class Id<A extends Aggregate> {
+
+  @JsonProperty("uuid")
+  public abstract UUID uuid();
+
+  @JsonProperty("type")
+  public abstract Class<A> type();
+
+  public static <V extends Aggregate> Id<V> from(Class<V> type, UUID uuid) {
+    return new AutoValue_Id.Builder<V>().type(type).uuid(uuid).build();
   }
 
   public static <V extends Aggregate> Id<V> random(Class<V> type) {
-    return new Id<>(type, randomUUID());
+    return from(type, randomUUID());
+  }
+
+  @AutoValue.Builder
+  @JsonPOJOBuilder(withPrefix = "")
+  public abstract static class Builder<A extends Aggregate> {
+
+    public abstract Builder<A> uuid(UUID value);
+
+    public abstract Builder<A> type(Class<A> value);
+
+    public abstract Id<A> build();
   }
 }

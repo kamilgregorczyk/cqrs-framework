@@ -3,3 +3,7 @@ server:
 spring:
   kafka:
     bootstrap-servers: localhost:9092
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/test?retryWrites=true&w=majority

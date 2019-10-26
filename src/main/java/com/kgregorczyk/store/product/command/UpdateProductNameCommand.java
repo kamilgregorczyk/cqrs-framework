@@ -1,22 +1,34 @@
 package com.kgregorczyk.store.product.command;
 
-import com.kgregorczyk.store.cqrs.aggregate.Id;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
+import com.google.auto.value.AutoValue;
 import com.kgregorczyk.store.cqrs.command.DomainCommand;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
-import lombok.*;
-
 import java.time.Instant;
 
-@Getter
-@EqualsAndHashCode(callSuper = true)
-@NoArgsConstructor
-@ToString
-public class UpdateProductNameCommand extends DomainCommand<ProductAggregate> {
-  private String name;
+@AutoValue
+@JsonDeserialize(builder = AutoValue_UpdateProductNameCommand.Builder.class)
+public abstract class UpdateProductNameCommand extends DomainCommand<ProductAggregate> {
 
-  @Builder
-  public UpdateProductNameCommand(Id<ProductAggregate> id, String name) {
-    super(id, Instant.now());
-    this.name = name;
+  public static Builder anUpdateProductNameCommand() {
+    return new AutoValue_UpdateProductNameCommand.Builder().createdAt(Instant.now());
+  }
+
+  @JsonProperty("name")
+  public abstract String name();
+
+  public abstract Builder toBuilder();
+
+  @AutoValue.Builder
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonPOJOBuilder(withPrefix = "")
+  public abstract static class Builder extends DomainCommand.Builder<Builder, ProductAggregate> {
+
+    public abstract Builder name(String value);
+
+    public abstract UpdateProductNameCommand build();
   }
 }

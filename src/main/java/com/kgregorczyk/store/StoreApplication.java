@@ -1,48 +1,51 @@
 package com.kgregorczyk.store;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.kgregorczyk.store.cqrs.command.DomainCommand;
 import com.kgregorczyk.store.cqrs.command.DomainCommandPublisher;
 import com.kgregorczyk.store.cqrs.event.DomainEvent;
 import com.kgregorczyk.store.cqrs.event.DomainEventPublisher;
-import com.kgregorczyk.store.cqrs.event.DomainEventRepository;
-import com.kgregorczyk.store.cqrs.kafka.*;
+import com.kgregorczyk.store.cqrs.kafka.KafkaDomainCommandPublisher;
+import com.kgregorczyk.store.cqrs.kafka.KafkaDomainEventPublisher;
+import com.kgregorczyk.store.cqrs.kafka.TrustedJsonDeserializer;
+import com.kgregorczyk.store.cqrs.kafka.TrustedJsonSerializer;
+import com.kgregorczyk.store.cqrs.kafka.UUIDDeserializer;
+import com.kgregorczyk.store.cqrs.kafka.UUIDSerializer;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
+import com.kgregorczyk.store.product.event.ProductCreatedEvent;
+import com.kgregorczyk.store.product.event.ProductNameUpdatedEvent;
+import com.kgregorczyk.store.product.event.ProductPriceUpdatedEvent;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
-import org.apache.kafka.streams.kstream.Consumed;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.state.KeyValueStore;
-import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.core.*;
-import org.springframework.kafka.support.serializer.JsonSerde;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
+@EnableKafka
 @SpringBootApplication
-@Import(value = KafkaCQRSConfiguration.class)
 public class StoreApplication {
+
+  @Value("${spring.kafka.bootstrap-servers}")
+  private String bootstrapServers;
 
   public static void main(String[] args) {
     SpringApplication.run(StoreApplication.class, args);
   }
-
-  @Value("${spring.kafka.bootstrap-servers}")
-  private String bootstrapServers;
 
   /** Events */
   @Bean(ProductAggregate.EVENT_TOPIC)
@@ -69,7 +72,7 @@ public class StoreApplication {
   /** Commands */
   @Bean(ProductAggregate.COMMAND_TOPIC)
   NewTopic productCommandTopic() {
-    return new NewTopic(ProductAggregate.COMMAND_TOPIC, 5, (short) 1);
+    return new NewTopic(ProductAggregate.COMMAND_TOPIC, 30, (short) 1);
   }
 
   @Bean
@@ -89,59 +92,21 @@ public class StoreApplication {
   }
 
   @Bean
-  public ConsumerFactory<UUID, DomainCommand<ProductAggregate>> domainCommandConsumerFactory() {
+  public ConsumerFactory<UUID, DomainCommand<ProductAggregate>> domainCommandConsumerFactory(
+      TrustedJsonDeserializer<DomainCommand<ProductAggregate>> jsonDeserializer) {
     return new DefaultKafkaConsumerFactory<>(
-        consumerConfigs(), new UUIDDeserializer(), new TrustedJsonDeserializer<>());
+        consumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
   }
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>>
-      kafkaListenerContainerFactory() {
+      kafkaListenerContainerFactory(
+          ConsumerFactory<UUID, DomainCommand<ProductAggregate>> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(domainCommandConsumerFactory());
+    factory.setConcurrency(5);
+    factory.setConsumerFactory(consumerFactory);
     return factory;
-  }
-
-  // Stream
-  @Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
-  StreamsConfig productStreamsConfig() {
-    Map<String, Object> config = new HashMap<>();
-    config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-    config.put(StreamsConfig.APPLICATION_ID_CONFIG, "product-service");
-    return new StreamsConfig(config);
-  }
-
-  @Bean
-  KTable<UUID, ProductAggregate> productAggregateKTable(StreamsBuilder streamsBuilder) {
-    var keySerde = Serdes.serdeFrom(new UUIDSerializer(), new UUIDDeserializer());
-    var valueSerde =
-        new JsonSerde<DomainEvent<ProductAggregate>>(
-            new TrustedJsonSerializer<>(), new TrustedJsonDeserializer<>());
-    var aggregateSerde =
-        new JsonSerde<ProductAggregate>(
-            new TrustedJsonSerializer<>(), new TrustedJsonDeserializer<>());
-    return streamsBuilder.stream(ProductAggregate.EVENT_TOPIC, Consumed.with(keySerde, valueSerde))
-        .groupBy((uuid, event) -> uuid)
-        .aggregate(
-            ProductAggregate::new,
-            (uuid, event, aggregate) -> aggregate.applyEvent(event),
-            Materialized.<UUID, ProductAggregate, KeyValueStore<Bytes, byte[]>>as(
-                    ProductAggregate.EVENT_SNAPSHOT)
-                .withKeySerde(keySerde)
-                .withValueSerde(aggregateSerde));
-  }
-
-  @Bean
-  ReadOnlyKeyValueStore<UUID, ProductAggregate> productAggregateReadOnlyKeyValueStore(QueryableStoreRegistry queryableStoreRegistry){
-
-  }
-
-  @Bean
-  DomainEventRepository<ProductAggregate> productAggregateDomainEventRepository(
-          DomainEventPublisher<ProductAggregate> eventPublisher,
-          ReadOnlyKeyValueStore<UUID, ProductAggregate> keyValueStore) {
-    return new KafkaDomainEventRepository<>(eventPublisher, keyValueStore);
   }
 
   private Map<String, Object> producerConfig() {
@@ -152,7 +117,7 @@ public class StoreApplication {
     return config;
   }
 
-  public Map<String, Object> consumerConfigs() {
+  private Map<String, Object> consumerConfigs() {
 
     Map<String, Object> props = new HashMap<>();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -162,5 +127,25 @@ public class StoreApplication {
     props.put(ConsumerConfig.GROUP_ID_CONFIG, "product-service");
 
     return props;
+  }
+
+  @Bean
+  public ObjectMapper objectMapper() {
+    var mapper = new ObjectMapper();
+    mapper.registerModule(new JavaTimeModule());
+    mapper.registerModule(new Jdk8Module());
+    mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    return mapper;
+  }
+
+  @Bean()
+  public Map<String, Class> eventTypeToClass() {
+    return Map.of(
+        "PRODUCT_CREATED_EVENT",
+        ProductCreatedEvent.class,
+        "PRODUCT_PRICE_UPDATED_EVENT",
+        ProductPriceUpdatedEvent.class,
+        "PRODUCT_NAME_UPDATED_EVENT",
+        ProductNameUpdatedEvent.class);
   }
 }

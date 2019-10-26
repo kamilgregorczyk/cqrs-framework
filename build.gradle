@@ -24,10 +24,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.apache.kafka:kafka-streams'
     implementation 'org.springframework.kafka:spring-kafka'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.28'
+    compile group: 'io.vavr', name: 'vavr', version: '0.10.2'
+    compile group: 'org.springframework.boot', name: 'spring-boot-starter-actuator', version: '2.1.8.RELEASE'
     compile 'com.google.guava:guava:27.1-jre'
     compile 'io.vavr:vavr:0.9.0'
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    compile "com.google.auto.value:auto-value-annotations:1.6.6"
+    annotationProcessor "com.google.auto.value:auto-value:1.6.6"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
 }

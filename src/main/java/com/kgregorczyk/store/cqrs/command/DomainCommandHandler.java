@@ -1,11 +1,12 @@
 package com.kgregorczyk.store.cqrs.command;
 
 import com.kgregorczyk.store.cqrs.aggregate.Aggregate;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Slf4j
 public abstract class DomainCommandHandler<A extends Aggregate<A, ?>, C extends DomainCommand<A>> {
 
+  private final Logger log = LoggerFactory.getLogger(getClass().getName());
   private final DomainCommandPublisher<A> commandPublisher;
 
   protected DomainCommandHandler(DomainCommandPublisher<A> commandPublisher) {

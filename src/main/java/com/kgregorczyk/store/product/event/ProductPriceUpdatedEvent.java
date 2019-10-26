@@ -11,18 +11,15 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 @AutoValue
-@JsonDeserialize(builder = AutoValue_ProductCreatedEvent.Builder.class)
-public abstract class ProductCreatedEvent extends DomainEvent<ProductAggregate> {
+@JsonDeserialize(builder = AutoValue_ProductPriceUpdatedEvent.Builder.class)
+public abstract class ProductPriceUpdatedEvent extends DomainEvent<ProductAggregate> {
 
-  public static Builder aProductCreatedEvent(boolean isPending) {
-    return new AutoValue_ProductCreatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
+  public static Builder aProductPriceUpdatedEvent(boolean isPending) {
+    return new AutoValue_ProductPriceUpdatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
   }
 
   @JsonProperty("price")
   public abstract BigDecimal price();
-
-  @JsonProperty("name")
-  public abstract String name();
 
   public abstract Builder toBuilder();
 
@@ -33,8 +30,6 @@ public abstract class ProductCreatedEvent extends DomainEvent<ProductAggregate> 
 
     public abstract Builder price(BigDecimal value);
 
-    public abstract Builder name(String value);
-
-    public abstract ProductCreatedEvent build();
+    public abstract ProductPriceUpdatedEvent build();
   }
 }

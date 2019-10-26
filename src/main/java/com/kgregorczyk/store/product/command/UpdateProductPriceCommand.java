@@ -1,40 +1,35 @@
-package com.kgregorczyk.store.product.event;
+package com.kgregorczyk.store.product.command;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import com.google.auto.value.AutoValue;
-import com.kgregorczyk.store.cqrs.event.DomainEvent;
+import com.kgregorczyk.store.cqrs.command.DomainCommand;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @AutoValue
-@JsonDeserialize(builder = AutoValue_ProductCreatedEvent.Builder.class)
-public abstract class ProductCreatedEvent extends DomainEvent<ProductAggregate> {
+@JsonDeserialize(builder = AutoValue_UpdateProductPriceCommand.Builder.class)
+public abstract class UpdateProductPriceCommand extends DomainCommand<ProductAggregate> {
 
-  public static Builder aProductCreatedEvent(boolean isPending) {
-    return new AutoValue_ProductCreatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
+  public static Builder anUpdateProductPriceCommand() {
+    return new AutoValue_UpdateProductPriceCommand.Builder().createdAt(Instant.now());
   }
 
   @JsonProperty("price")
   public abstract BigDecimal price();
-
-  @JsonProperty("name")
-  public abstract String name();
 
   public abstract Builder toBuilder();
 
   @AutoValue.Builder
   @JsonIgnoreProperties(ignoreUnknown = true)
   @JsonPOJOBuilder(withPrefix = "")
-  public abstract static class Builder extends DomainEvent.Builder<Builder, ProductAggregate> {
+  public abstract static class Builder extends DomainCommand.Builder<Builder, ProductAggregate> {
 
     public abstract Builder price(BigDecimal value);
 
-    public abstract Builder name(String value);
-
-    public abstract ProductCreatedEvent build();
+    public abstract UpdateProductPriceCommand build();
   }
 }

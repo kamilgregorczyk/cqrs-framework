@@ -1,14 +1,13 @@
 package com.kgregorczyk.store.cqrs.aggregate;
 
 import com.kgregorczyk.store.cqrs.event.DomainEvent;
-import lombok.Data;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
+
 public abstract class Aggregate<A extends Aggregate<A, S>, S extends GenericState> {
+
   private Id<A> id;
   private S state;
   private Instant createdAt;
@@ -19,21 +18,57 @@ public abstract class Aggregate<A extends Aggregate<A, S>, S extends GenericStat
     return List.copyOf(pendingEvents);
   }
 
+  public boolean hasChanged(){
+    return !pendingEvents.isEmpty();
+  }
+
   public void flushEvents() {
     pendingEvents.clear();
   }
 
-  public A addPendingEvent(DomainEvent<A> event) {
-    pendingEvents.add(event);
+  public abstract A applyEvent(DomainEvent<A> event);
+
+  protected A addPendingEvent(DomainEvent<A> event) {
+    if (event.isPendingEvent()) {
+      pendingEvents.add(event);
+    }
     return (A) this;
   }
 
-  protected void setUpdatedAt(Instant instant) {
-    updatedAt = instant;
+  protected Aggregate<A, S> state(S state) {
+    this.state = state;
+    return this;
   }
 
-  protected void setCreatedAt(Instant instant) {
-    createdAt = instant;
+  protected Aggregate<A, S> updatedAt(Instant instant) {
+    this.updatedAt = instant;
+    return this;
+  }
+
+  protected Aggregate<A, S> createdAt(Instant instant) {
+    this.createdAt = instant;
+    return this;
+  }
+
+  protected Aggregate<A, S> id(Id<A> id) {
+    this.id = id;
+    return this;
+  }
+
+  public Id<A> id() {
+    return id;
+  }
+
+  public S state() {
+    return state;
+  }
+
+  public Instant createdAt() {
+    return createdAt;
+  }
+
+  public Instant updatedAt() {
+    return updatedAt;
   }
 
   public abstract String getEventTopic();
