@@ -8,11 +8,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Component;
 
-@Component
-public class KafkaDomainEventPublisher<A extends Aggregate<A, ?>> implements
-    DomainEventPublisher<A> {
+public class KafkaDomainEventPublisher<A extends Aggregate<A, ?>>
+    implements DomainEventPublisher<A> {
 
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
   private final KafkaTemplate<UUID, DomainEvent<A>> kafkaTemplate;
@@ -31,5 +29,4 @@ public class KafkaDomainEventPublisher<A extends Aggregate<A, ?>> implements
     log.debug("Publishing on [{}] event [{}]", topic, event);
     kafkaTemplate.send(topic, event.id().uuid(), event);
   }
-
 }

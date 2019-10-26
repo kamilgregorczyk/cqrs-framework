@@ -6,6 +6,7 @@ import com.google.common.base.CaseFormat;
 import com.kgregorczyk.store.cqrs.aggregate.Aggregate;
 import com.kgregorczyk.store.cqrs.aggregate.Id;
 import java.time.Instant;
+import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class DomainCommand<A extends Aggregate> {
@@ -15,6 +16,9 @@ public abstract class DomainCommand<A extends Aggregate> {
 
   @JsonProperty("createdAt")
   public abstract Instant createdAt();
+
+  @JsonProperty("correlationId")
+  public abstract UUID correlationId();
 
   /**
    * Converts for e.g. AutoValue__CreateProductCommand -> CREATE_PRODUCT_COMMAND
@@ -32,5 +36,8 @@ public abstract class DomainCommand<A extends Aggregate> {
 
     @JsonProperty("createdAt")
     public abstract B createdAt(Instant value);
+
+    @JsonProperty("correlationId")
+    public abstract B correlationId(UUID value);
   }
 }

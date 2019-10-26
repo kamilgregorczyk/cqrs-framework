@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.kgregorczyk.store.cqrs.command.DomainCommandHandler;
 import com.kgregorczyk.store.cqrs.command.DomainCommandPublisher;
+import com.kgregorczyk.store.cqrs.event.DomainEventBus;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.math.BigDecimal;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,8 +15,8 @@ public class CreateProductCommandHandler
     extends DomainCommandHandler<ProductAggregate, CreateProductCommand> {
 
   @Autowired
-  public CreateProductCommandHandler(DomainCommandPublisher<ProductAggregate> commandPublisher) {
-    super(commandPublisher);
+  public CreateProductCommandHandler(DomainCommandPublisher<ProductAggregate> commandPublisher, DomainEventBus domainEventBus) {
+    super(commandPublisher, domainEventBus);
   }
 
   @Override

@@ -8,6 +8,7 @@ import com.kgregorczyk.store.cqrs.aggregate.Aggregate;
 import com.kgregorczyk.store.cqrs.aggregate.Id;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public abstract class DomainEvent<A extends Aggregate> {
@@ -17,6 +18,9 @@ public abstract class DomainEvent<A extends Aggregate> {
 
   @JsonProperty("createdAt")
   public abstract Instant createdAt();
+
+  @JsonProperty("correlationId")
+  public abstract UUID correlationId();
 
   @JsonIgnore
   public abstract Optional<Boolean> pendingEvent();
@@ -43,7 +47,11 @@ public abstract class DomainEvent<A extends Aggregate> {
     @JsonProperty("createdAt")
     public abstract B createdAt(Instant value);
 
+    @JsonProperty("correlationId")
+    public abstract B correlationId(UUID value);
+
     @JsonIgnore
     public abstract B pendingEvent(Boolean value);
+
   }
 }

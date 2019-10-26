@@ -1,6 +1,5 @@
 package com.kgregorczyk.store.cqrs.mongo;
 
-import com.kgregorczyk.store.cqrs.event.DomainEvent;
 import com.mongodb.BasicDBObject;
 import java.time.LocalDate;
 import org.bson.conversions.Bson;
@@ -11,14 +10,13 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @Document
 public class EventDocument {
 
-  @Id
-  private String id;
+  @Id private String id;
 
-  @Indexed
-  private String aggregateType;
+  @Indexed private String aggregateType;
 
-  @Indexed
-  private String aggregateId;
+  @Indexed private String aggregateId;
+
+  private String correlationId;
 
   private String eventType;
 
@@ -26,8 +24,7 @@ public class EventDocument {
 
   private LocalDate createdAt = LocalDate.now();
 
-  public EventDocument() {
-  }
+  public EventDocument() {}
 
   public String getId() {
     return id;
@@ -39,6 +36,10 @@ public class EventDocument {
 
   public String getAggregateId() {
     return aggregateId;
+  }
+
+  public String getCorrelationId() {
+    return correlationId;
   }
 
   public Bson getEventData() {
@@ -60,6 +61,11 @@ public class EventDocument {
 
   public EventDocument setAggregateType(String aggregateType) {
     this.aggregateType = aggregateType;
+    return this;
+  }
+
+  public EventDocument setCorrelationId(String correlationId) {
+    this.correlationId = correlationId;
     return this;
   }
 

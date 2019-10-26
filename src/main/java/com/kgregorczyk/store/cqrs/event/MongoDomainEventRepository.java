@@ -50,6 +50,7 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
               final var mappedEvent =
                   new EventDocument()
                       .setAggregateId(aggregate.id().uuid().toString())
+                      .setCorrelationId(event.correlationId().toString())
                       .setAggregateType(aggregate.id().type().getSimpleName())
                       .setEventType(event.getClass().getTypeName())
                       .setEventData(objectMapper.convertValue(event, BasicDBObject.class));

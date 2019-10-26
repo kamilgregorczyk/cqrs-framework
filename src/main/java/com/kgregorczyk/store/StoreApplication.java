@@ -1,5 +1,7 @@
 package com.kgregorczyk.store;
 
+import static java.util.UUID.randomUUID;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -27,6 +29,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -92,17 +95,36 @@ public class StoreApplication {
   }
 
   @Bean
+  @ConditionalOnMissingBean(name = "domainCommandContainerFactory")
   public ConsumerFactory<UUID, DomainCommand<ProductAggregate>> domainCommandConsumerFactory(
       TrustedJsonDeserializer<DomainCommand<ProductAggregate>> jsonDeserializer) {
     return new DefaultKafkaConsumerFactory<>(
-        consumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
+        commandConsumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
+  }
+
+  @Bean("domainCommandContainerFactory")
+  public ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>>
+      domainCommandContainerFactory(
+          ConsumerFactory<UUID, DomainCommand<ProductAggregate>> consumerFactory) {
+    ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>> factory =
+        new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConsumerFactory(consumerFactory);
+    return factory;
   }
 
   @Bean
-  public ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>>
-      kafkaListenerContainerFactory(
-          ConsumerFactory<UUID, DomainCommand<ProductAggregate>> consumerFactory) {
-    ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>> factory =
+  @ConditionalOnMissingBean(name = "domainEventContainerFactory")
+  public ConsumerFactory<UUID, DomainEvent<ProductAggregate>> domainEventConsumerFactory(
+      TrustedJsonDeserializer<DomainEvent<ProductAggregate>> jsonDeserializer) {
+    return new DefaultKafkaConsumerFactory<>(
+        commandConsumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
+  }
+
+  @Bean("domainEventContainerFactory")
+  public ConcurrentKafkaListenerContainerFactory<UUID, DomainEvent<ProductAggregate>>
+      domainEventContainerFactory(
+          ConsumerFactory<UUID, DomainEvent<ProductAggregate>> consumerFactory) {
+    ConcurrentKafkaListenerContainerFactory<UUID, DomainEvent<ProductAggregate>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConcurrency(5);
     factory.setConsumerFactory(consumerFactory);
@@ -117,7 +139,7 @@ public class StoreApplication {
     return config;
   }
 
-  private Map<String, Object> consumerConfigs() {
+  private Map<String, Object> commandConsumerConfigs() {
 
     Map<String, Object> props = new HashMap<>();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -125,6 +147,18 @@ public class StoreApplication {
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, TrustedJsonDeserializer.class);
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     props.put(ConsumerConfig.GROUP_ID_CONFIG, "product-service");
+
+    return props;
+  }
+
+  private Map<String, Object> eventConsumerConfigs() {
+
+    Map<String, Object> props = new HashMap<>();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, UUIDDeserializer.class);
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, TrustedJsonDeserializer.class);
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, String.format("product-service(%s)", randomUUID()));
 
     return props;
   }

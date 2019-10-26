@@ -8,13 +8,16 @@ import com.google.auto.value.AutoValue;
 import com.kgregorczyk.store.cqrs.command.DomainCommand;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.time.Instant;
+import java.util.UUID;
 
 @AutoValue
 @JsonDeserialize(builder = AutoValue_UpdateProductNameCommand.Builder.class)
 public abstract class UpdateProductNameCommand extends DomainCommand<ProductAggregate> {
 
   public static Builder anUpdateProductNameCommand() {
-    return new AutoValue_UpdateProductNameCommand.Builder().createdAt(Instant.now());
+    return new AutoValue_UpdateProductNameCommand.Builder()
+        .createdAt(Instant.now())
+        .correlationId(UUID.randomUUID());
   }
 
   @JsonProperty("name")

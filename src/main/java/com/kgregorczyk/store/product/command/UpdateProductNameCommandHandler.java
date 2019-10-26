@@ -4,6 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.kgregorczyk.store.cqrs.command.DomainCommandHandler;
 import com.kgregorczyk.store.cqrs.command.DomainCommandPublisher;
+import com.kgregorczyk.store.cqrs.event.DomainEventBus;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -14,8 +15,8 @@ public class UpdateProductNameCommandHandler
 
   @Autowired
   public UpdateProductNameCommandHandler(
-      DomainCommandPublisher<ProductAggregate> commandPublisher) {
-    super(commandPublisher);
+      DomainCommandPublisher<ProductAggregate> commandPublisher, DomainEventBus domainEventBus) {
+    super(commandPublisher, domainEventBus);
   }
 
   @Override

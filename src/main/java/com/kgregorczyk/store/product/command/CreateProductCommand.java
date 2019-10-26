@@ -9,14 +9,16 @@ import com.kgregorczyk.store.cqrs.command.DomainCommand;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.math.BigDecimal;
 import java.time.Instant;
-
+import java.util.UUID;
 
 @AutoValue
 @JsonDeserialize(builder = AutoValue_CreateProductCommand.Builder.class)
 public abstract class CreateProductCommand extends DomainCommand<ProductAggregate> {
 
   public static Builder aCreateProductCommand() {
-    return new AutoValue_CreateProductCommand.Builder().createdAt(Instant.now());
+    return new AutoValue_CreateProductCommand.Builder()
+        .createdAt(Instant.now())
+        .correlationId(UUID.randomUUID());
   }
 
   @JsonProperty("price")

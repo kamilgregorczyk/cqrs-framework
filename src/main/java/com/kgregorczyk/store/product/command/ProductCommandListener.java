@@ -25,7 +25,7 @@ public class ProductCommandListener {
     this.repository = repository;
   }
 
-  @KafkaListener(topics = ProductAggregate.COMMAND_TOPIC)
+  @KafkaListener(topics = ProductAggregate.COMMAND_TOPIC, containerFactory = "domainCommandContainerFactory")
   public void commandHandler(DomainCommand<ProductAggregate> command) {
     API.Match(command)
         .of(
@@ -39,6 +39,7 @@ public class ProductCommandListener {
     final var event =
         aProductCreatedEvent(true)
             .id(command.id())
+            .correlationId(command.correlationId())
             .price(command.price())
             .name(command.name())
             .build();
@@ -47,17 +48,28 @@ public class ProductCommandListener {
 
   private ProductAggregate commandHandler(UpdateProductNameCommand command) {
     final var aggregate = getAggregate(command.id());
-    final var event = aProductNameUpdatedEvent(true).id(command.id()).name(command.name()).build();
+    final var event =
+        aProductNameUpdatedEvent(true)
+            .id(command.id())
+            .correlationId(command.correlationId())
+            .name(command.name())
+            .build();
     return repository.save(aggregate.applyEvent(event));
   }
 
   private ProductAggregate commandHandler(UpdateProductPriceCommand command) {
     final var aggregate = getAggregate(command.id());
-    final var event = aProductPriceUpdatedEvent(true).id(command.id()).price(command.price()).build();
+    final var event =
+        aProductPriceUpdatedEvent(true)
+            .id(command.id())
+            .correlationId(command.correlationId())
+            .price(command.price())
+            .build();
     return repository.save(aggregate.applyEvent(event));
   }
 
-  private ProductAggregate getAggregate(Id<ProductAggregate> id){
-    return ofAll(repository.find(id)).foldLeft(new ProductAggregate(), (ProductAggregate::applyEvent));
+  private ProductAggregate getAggregate(Id<ProductAggregate> id) {
+    return ofAll(repository.find(id))
+        .foldLeft(new ProductAggregate(), (ProductAggregate::applyEvent));
   }
 }
