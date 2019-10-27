@@ -3,9 +3,6 @@ package com.kgregorczyk.store.product.controller;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import com.kgregorczyk.store.cqrs.aggregate.GenericState;
-import com.kgregorczyk.store.cqrs.aggregate.Id;
-import com.kgregorczyk.store.cqrs.event.DomainEvent;
-import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +10,10 @@ import java.util.UUID;
 
 @AutoValue
 public abstract class ProductDTO {
+
+  public static ProductDTO.Builder aProductDTO() {
+    return new AutoValue_ProductDTO.Builder();
+  }
 
   @JsonProperty("id")
   public abstract UUID id();
@@ -33,11 +34,7 @@ public abstract class ProductDTO {
   public abstract Instant updatedAt();
 
   @JsonProperty("events")
-  public abstract List<DomainEvent<ProductAggregate>> events();
-
-  public static ProductDTO.Builder aProductDTO() {
-    return new AutoValue_ProductDTO.Builder();
-  }
+  public abstract List<DomainEventDTO> events();
 
   @AutoValue.Builder
   public abstract static class Builder {
@@ -54,7 +51,7 @@ public abstract class ProductDTO {
 
     public abstract ProductDTO.Builder updatedAt(Instant date);
 
-    public abstract ProductDTO.Builder events(List<DomainEvent<ProductAggregate>> events);
+    public abstract ProductDTO.Builder events(List<DomainEventDTO> events);
 
     public abstract ProductDTO build();
   }

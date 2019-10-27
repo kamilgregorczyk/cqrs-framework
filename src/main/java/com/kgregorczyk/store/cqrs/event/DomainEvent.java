@@ -30,9 +30,7 @@ public abstract class DomainEvent<A extends Aggregate> {
     return pendingEvent().orElse(false);
   }
 
-  /**
-   * Converts for e.g. AutoValue__AccountCreatedEvent -> ACCOUNT_CREATED_EVENT
-   */
+  /** Converts for e.g. AutoValue__AccountCreatedEvent -> ACCOUNT_CREATED_EVENT */
   @JsonProperty("eventType")
   public String eventType() {
     return CaseFormat.UPPER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, this.getClass().getSimpleName())
@@ -52,6 +50,5 @@ public abstract class DomainEvent<A extends Aggregate> {
 
     @JsonIgnore
     public abstract B pendingEvent(Boolean value);
-
   }
 }

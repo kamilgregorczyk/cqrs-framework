@@ -5,7 +5,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public abstract class Aggregate<A extends Aggregate<A, S>, S extends GenericState> {
 
   private Id<A> id;
@@ -13,25 +12,45 @@ public abstract class Aggregate<A extends Aggregate<A, S>, S extends GenericStat
   private Instant createdAt;
   private Instant updatedAt;
   private List<DomainEvent<A>> pendingEvents = new ArrayList<>();
+  private List<DomainEvent<A>> persistedEvents = new ArrayList<>();
+  private List<DomainEvent<A>> rejectedEvents = new ArrayList<>();
 
-  public List<DomainEvent<A>> getPendingEvents() {
+  public List<DomainEvent<A>> persistedEvents() {
+    return List.copyOf(persistedEvents);
+  }
+
+  public List<DomainEvent<A>> rejectedEvents() {
+    return List.copyOf(rejectedEvents);
+  }
+
+  public List<DomainEvent<A>> pendingEvents() {
     return List.copyOf(pendingEvents);
   }
 
-  public boolean hasChanged(){
+  public boolean hasChanged() {
     return !pendingEvents.isEmpty();
   }
 
   public void flushEvents() {
+    persistedEvents.addAll(pendingEvents);
     pendingEvents.clear();
+    rejectedEvents.clear();
   }
 
   public abstract A applyEvent(DomainEvent<A> event);
 
-  protected A addPendingEvent(DomainEvent<A> event) {
+  protected A recordEvent(DomainEvent<A> event) {
     if (event.isPendingEvent()) {
       pendingEvents.add(event);
+    } else {
+      persistedEvents.add(event);
     }
+    updatedAt(event.createdAt());
+    return (A) this;
+  }
+
+  protected A recordRejectedEvent(DomainEvent<A> event) {
+    rejectedEvents.add(event);
     return (A) this;
   }
 

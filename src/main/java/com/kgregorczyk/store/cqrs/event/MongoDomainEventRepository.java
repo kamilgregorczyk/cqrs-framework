@@ -1,14 +1,15 @@
 package com.kgregorczyk.store.cqrs.event;
 
+import static com.google.common.base.Stopwatch.createStarted;
 import static io.vavr.API.unchecked;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Stopwatch;
 import com.kgregorczyk.store.cqrs.aggregate.Aggregate;
 import com.kgregorczyk.store.cqrs.aggregate.Id;
 import com.kgregorczyk.store.cqrs.mongo.EventDocument;
 import com.kgregorczyk.store.cqrs.mongo.EventDocumentRepository;
 import com.mongodb.BasicDBObject;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -25,14 +26,18 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
 
   private final DomainEventPublisher<A> domainEventPublisher;
   private final EventDocumentRepository eventDocumentRepository;
+  private final DomainEventSynchronizer domainEventSynchronizer;
   private final ObjectMapper objectMapper;
 
   @Autowired
   public MongoDomainEventRepository(
       DomainEventPublisher<A> domainEventPublisher,
-      EventDocumentRepository eventDocumentRepository, ObjectMapper objectMapper) {
+      EventDocumentRepository eventDocumentRepository,
+      DomainEventSynchronizer domainEventSynchronizer,
+      ObjectMapper objectMapper) {
     this.domainEventPublisher = domainEventPublisher;
     this.eventDocumentRepository = eventDocumentRepository;
+    this.domainEventSynchronizer = domainEventSynchronizer;
     this.objectMapper = objectMapper;
   }
 
@@ -41,28 +46,11 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
   public A save(A aggregate) {
     if (!aggregate.hasChanged()) {
       log.info("No change for aggregate=[{}]", aggregate.id());
-      return aggregate;
+      notifyOnRejectedEvents(aggregate.rejectedEvents());
+    } else {
+      persistEvents(aggregate.id(), aggregate.pendingEvents());
+      domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.pendingEvents());
     }
-    aggregate
-        .getPendingEvents()
-        .forEach(
-            event -> {
-              final var mappedEvent =
-                  new EventDocument()
-                      .setAggregateId(aggregate.id().uuid().toString())
-                      .setCorrelationId(event.correlationId().toString())
-                      .setAggregateType(aggregate.id().type().getSimpleName())
-                      .setEventType(event.getClass().getTypeName())
-                      .setEventData(objectMapper.convertValue(event, BasicDBObject.class));
-              var watch = Stopwatch.createStarted();
-              eventDocumentRepository.save(mappedEvent);
-              log.debug("Took [{} ms] to save event", watch.stop().elapsed(TimeUnit.MILLISECONDS));
-            });
-    log.info(
-        "Persisted [{}] events for aggregate=[{}]",
-        aggregate.getPendingEvents().size(),
-        aggregate.id());
-    domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.getPendingEvents());
     aggregate.flushEvents();
     return aggregate;
   }
@@ -77,5 +65,27 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
                     objectMapper.convertValue(
                         eventDocument.getEventData(),
                         unchecked(() -> Class.forName(eventDocument.getEventType())).apply()));
+  }
+
+  private void notifyOnRejectedEvents(List<DomainEvent<A>> rejectedEvents) {
+    rejectedEvents.forEach(event -> domainEventSynchronizer.notify(event.correlationId()));
+  }
+
+  private void persistEvents(Id<A> id, List<DomainEvent<A>> pendingEvents) {
+    var watch = createStarted();
+    pendingEvents.forEach(
+        event -> {
+          final var mappedEvent =
+              new EventDocument()
+                  .setAggregateId(id.uuid().toString())
+                  .setCorrelationId(event.correlationId().toString())
+                  .setAggregateType(id.type().getSimpleName())
+                  .setEventType(event.getClass().getTypeName())
+                  .setCreatedAt(event.createdAt())
+                  .setEventData(objectMapper.convertValue(event, BasicDBObject.class));
+          eventDocumentRepository.save(mappedEvent);
+        });
+    log.debug("Took [{} ms] to save events", watch.stop().elapsed(TimeUnit.MILLISECONDS));
+    log.info("Persisted [{}] events for aggregate=[{}]", pendingEvents.size(), id);
   }
 }

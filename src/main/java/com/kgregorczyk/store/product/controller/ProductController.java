@@ -3,18 +3,23 @@ package com.kgregorczyk.store.product.controller;
 import static com.kgregorczyk.store.product.command.CreateProductCommand.aCreateProductCommand;
 import static com.kgregorczyk.store.product.command.UpdateProductNameCommand.anUpdateProductNameCommand;
 import static com.kgregorczyk.store.product.command.UpdateProductPriceCommand.anUpdateProductPriceCommand;
+import static com.kgregorczyk.store.product.controller.DomainEventDTO.aDomainEventDTO;
 import static com.kgregorczyk.store.product.controller.ProductDTO.aProductDTO;
 import static io.vavr.collection.Stream.ofAll;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kgregorczyk.store.cqrs.aggregate.Id;
-import com.kgregorczyk.store.cqrs.event.DomainEventBus;
+import com.kgregorczyk.store.cqrs.event.DomainEvent;
 import com.kgregorczyk.store.cqrs.event.DomainEventRepository;
+import com.kgregorczyk.store.cqrs.event.DomainEventSynchronizer;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import com.kgregorczyk.store.product.command.CreateProductCommandHandler;
 import com.kgregorczyk.store.product.command.UpdateProductNameCommandHandler;
 import com.kgregorczyk.store.product.command.UpdateProductPriceCommandHandler;
+import java.util.Set;
 import java.util.UUID;
 import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,21 +38,24 @@ public class ProductController {
   private final CreateProductCommandHandler createProductCommandHandler;
   private final UpdateProductNameCommandHandler updateProductNameCommandHandler;
   private final UpdateProductPriceCommandHandler updateProductPriceCommandHandler;
-  private final DomainEventBus domainEventBus;
+  private final DomainEventSynchronizer domainEventSynchronizer;
   private final DomainEventRepository<ProductAggregate> eventRepository;
+  private final ObjectMapper objectMapper;
 
   @Autowired
   public ProductController(
       CreateProductCommandHandler createProductCommandHandler,
       UpdateProductNameCommandHandler updateProductNameCommandHandler,
       UpdateProductPriceCommandHandler updateProductPriceCommandHandler,
-      DomainEventBus domainEventBus,
-      DomainEventRepository<ProductAggregate> domainEventRepository) {
+      DomainEventSynchronizer domainEventSynchronizer,
+      DomainEventRepository<ProductAggregate> domainEventRepository,
+      ObjectMapper objectMapper) {
     this.createProductCommandHandler = createProductCommandHandler;
     this.updateProductNameCommandHandler = updateProductNameCommandHandler;
     this.updateProductPriceCommandHandler = updateProductPriceCommandHandler;
-    this.domainEventBus = domainEventBus;
+    this.domainEventSynchronizer = domainEventSynchronizer;
     this.eventRepository = domainEventRepository;
+    this.objectMapper = objectMapper;
   }
 
   @GetMapping("/{id}")
@@ -65,7 +73,7 @@ public class ProductController {
             .price(dto.price())
             .build();
     createProductCommandHandler.handle(createCommand);
-    domainEventBus.waitFor(createCommand.correlationId());
+    domainEventSynchronizer.waitOneSecondFor(createCommand.correlationId());
     return fetchProduct(createCommand.id());
   }
 
@@ -91,22 +99,33 @@ public class ProductController {
       updateProductPriceCommandHandler.handle(command);
       lastCorrelationId = command.correlationId();
     }
-    ofNullable(lastCorrelationId).ifPresent(domainEventBus::waitFor);
+    ofNullable(lastCorrelationId).ifPresent(domainEventSynchronizer::waitOneSecondFor);
     return fetchProduct(Id.from(ProductAggregate.class, id));
   }
 
   private ProductDTO fetchProduct(Id<ProductAggregate> id) {
-    final var events = eventRepository.find(id).collect(toUnmodifiableList());
     final var product =
-        ofAll(events).foldLeft(new ProductAggregate(), (ProductAggregate::applyEvent));
+        ofAll(eventRepository.find(id))
+            .foldLeft(new ProductAggregate(), (ProductAggregate::applyEvent));
     return aProductDTO()
         .id(product.id().uuid())
         .name(product.name())
         .price(product.price())
         .state(product.state())
-        .events(events)
+        .events(product.persistedEvents().stream().map(this::toDto).collect(toUnmodifiableList()))
         .createdAt(product.createdAt())
         .updatedAt(product.updatedAt())
+        .build();
+  }
+
+  private DomainEventDTO toDto(DomainEvent domainEvent) {
+    final var data = objectMapper.convertValue(domainEvent, ObjectNode.class);
+    data.remove(Set.of("id", "createdAt", "correlationId", "eventType"));
+    return aDomainEventDTO()
+        .id(domainEvent.correlationId())
+        .createdAt(domainEvent.createdAt())
+        .data(data)
+        .type(domainEvent.eventType())
         .build();
   }
 }

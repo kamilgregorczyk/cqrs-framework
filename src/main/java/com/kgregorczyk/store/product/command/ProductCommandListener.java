@@ -25,7 +25,9 @@ public class ProductCommandListener {
     this.repository = repository;
   }
 
-  @KafkaListener(topics = ProductAggregate.COMMAND_TOPIC, containerFactory = "domainCommandContainerFactory")
+  @KafkaListener(
+      topics = ProductAggregate.COMMAND_TOPIC,
+      containerFactory = "domainCommandContainerFactory")
   public void commandHandler(DomainCommand<ProductAggregate> command) {
     API.Match(command)
         .of(

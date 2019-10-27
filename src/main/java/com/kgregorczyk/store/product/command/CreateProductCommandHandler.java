@@ -4,7 +4,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.kgregorczyk.store.cqrs.command.DomainCommandHandler;
 import com.kgregorczyk.store.cqrs.command.DomainCommandPublisher;
-import com.kgregorczyk.store.cqrs.event.DomainEventBus;
+import com.kgregorczyk.store.cqrs.event.DomainEventSynchronizer;
 import com.kgregorczyk.store.product.aggregate.ProductAggregate;
 import java.math.BigDecimal;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,15 +15,22 @@ public class CreateProductCommandHandler
     extends DomainCommandHandler<ProductAggregate, CreateProductCommand> {
 
   @Autowired
-  public CreateProductCommandHandler(DomainCommandPublisher<ProductAggregate> commandPublisher, DomainEventBus domainEventBus) {
-    super(commandPublisher, domainEventBus);
+  public CreateProductCommandHandler(
+      DomainCommandPublisher<ProductAggregate> commandPublisher,
+      DomainEventSynchronizer domainEventSynchronizer) {
+    super(commandPublisher, domainEventSynchronizer);
   }
 
   @Override
   protected void validateCommand(CreateProductCommand command) {
     checkArgument(command.name().length() > 3, "Product's name has to have 4 or more characters");
-    checkArgument(command.price().compareTo(BigDecimal.ZERO) > 0,
-        "Price has to be higher than 0.0");
+    checkArgument(
+        command.name().length() <= 255, "Product's name has to have at most 255 characters");
+    checkArgument(
+        command.price().compareTo(BigDecimal.ZERO) > 0, "Price has to be higher than 0.0");
+    checkArgument(
+        command.price().compareTo(BigDecimal.valueOf(1_000_000)) < 0,
+        "Price has to be lower than 1 million");
   }
 
   @Override

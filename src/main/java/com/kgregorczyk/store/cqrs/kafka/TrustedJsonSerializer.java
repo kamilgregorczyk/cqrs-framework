@@ -11,7 +11,6 @@ public class TrustedJsonSerializer<T> extends JsonSerializer<T> {
     super(objectMapper());
   }
 
-
   private static ObjectMapper objectMapper() {
     var mapper = new ObjectMapper();
     mapper.registerModule(new JavaTimeModule());

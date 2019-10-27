@@ -1,11 +1,8 @@
 package com.kgregorczyk.store.cqrs.event;
 
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -15,20 +12,24 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Scope
-public class DomainEventBus {
-  private static final Map<UUID, BlockingQueue<DomainEvent>> CORRELATION_ID_TO_QUEUE =
-      new ConcurrentHashMap<>();
+public class DomainEventSynchronizer {
+  private static final Map<UUID, Object> CORRELATION_ID_TO_QUEUE = new ConcurrentHashMap<>();
 
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
 
   public void record(UUID correlationId) {
-    getOrCreateQueue(correlationId);
+    getOrCreateWaitObject(correlationId);
   }
 
-  public DomainEvent waitFor(UUID correlationId) {
-    synchronized (correlationId) {
+  public void waitOneSecondFor(UUID correlationId) {
+    waitFor(correlationId, 1);
+  }
+
+  public void waitFor(UUID correlationId, int seconds) {
+    final var waitObject = getOrCreateWaitObject(correlationId);
+    synchronized (waitObject) {
       try {
-        return getOrCreateQueue(correlationId).poll(3, TimeUnit.SECONDS);
+        waitObject.wait(TimeUnit.SECONDS.toMillis(seconds));
       } catch (InterruptedException e) {
         log.error("Failed to wait for event correlationId=[" + correlationId + "]", e);
         throw new UncheckedExecutionException(e);
@@ -38,17 +39,18 @@ public class DomainEventBus {
     }
   }
 
-  public void notify(DomainEvent domainEvent) {
+  public void notify(UUID correlationId) {
     CORRELATION_ID_TO_QUEUE.computeIfPresent(
-        domainEvent.correlationId(),
-        (id, queue) -> {
-          queue.offer(domainEvent);
-          return queue;
+        correlationId,
+        (id, obj) -> {
+          synchronized (obj) {
+            obj.notifyAll();
+          }
+          return obj;
         });
   }
 
-  private BlockingQueue<DomainEvent> getOrCreateQueue(UUID correlationId) {
-    return CORRELATION_ID_TO_QUEUE.computeIfAbsent(
-        correlationId, (id) -> new ArrayBlockingQueue<>(1));
+  private Object getOrCreateWaitObject(UUID correlationId) {
+    return CORRELATION_ID_TO_QUEUE.computeIfAbsent(correlationId, (id) -> new Object());
   }
 }

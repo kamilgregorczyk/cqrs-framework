@@ -9,3 +9,8 @@ spring:
       uri: mongodb://localhost:27017/test?retryWrites=true&w=majority
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+
+logging:
+  level:
+    com.kgregorczyk: DEBUG

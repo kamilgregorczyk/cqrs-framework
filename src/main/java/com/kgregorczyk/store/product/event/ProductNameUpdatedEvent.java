@@ -14,7 +14,9 @@ import java.time.Instant;
 public abstract class ProductNameUpdatedEvent extends DomainEvent<ProductAggregate> {
 
   public static Builder aProductNameUpdatedEvent(boolean isPending) {
-    return new AutoValue_ProductNameUpdatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
+    return new AutoValue_ProductNameUpdatedEvent.Builder()
+        .pendingEvent(isPending)
+        .createdAt(Instant.now());
   }
 
   @JsonProperty("name")

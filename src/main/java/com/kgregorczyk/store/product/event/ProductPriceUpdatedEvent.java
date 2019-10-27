@@ -15,7 +15,9 @@ import java.time.Instant;
 public abstract class ProductPriceUpdatedEvent extends DomainEvent<ProductAggregate> {
 
   public static Builder aProductPriceUpdatedEvent(boolean isPending) {
-    return new AutoValue_ProductPriceUpdatedEvent.Builder().pendingEvent(isPending).createdAt(Instant.now());
+    return new AutoValue_ProductPriceUpdatedEvent.Builder()
+        .pendingEvent(isPending)
+        .createdAt(Instant.now());
   }
 
   @JsonProperty("price")

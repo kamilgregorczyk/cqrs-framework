@@ -37,30 +37,29 @@ public class ProductAggregate extends Aggregate<ProductAggregate, GenericState> 
     id(event.id());
     state(GenericState.CREATED);
     createdAt(event.createdAt());
-    updatedAt(event.createdAt());
     name = event.name();
     price = event.price();
-    addPendingEvent(event);
+    recordEvent(event);
     return this;
   }
 
   public ProductAggregate applyEvent(ProductNameUpdatedEvent event) {
     if (event.name().equals(name)) {
+      recordRejectedEvent(event);
       return this;
     }
-    updatedAt(event.createdAt());
     name = event.name();
-    addPendingEvent(event);
+    recordEvent(event);
     return this;
   }
 
   public ProductAggregate applyEvent(ProductPriceUpdatedEvent event) {
     if (event.price().equals(price)) {
+      recordRejectedEvent(event);
       return this;
     }
-    updatedAt(event.createdAt());
     price = event.price();
-    addPendingEvent(event);
+    recordEvent(event);
     return this;
   }
 

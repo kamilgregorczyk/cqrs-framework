@@ -20,9 +20,7 @@ public abstract class DomainCommand<A extends Aggregate> {
   @JsonProperty("correlationId")
   public abstract UUID correlationId();
 
-  /**
-   * Converts for e.g. AutoValue__CreateProductCommand -> CREATE_PRODUCT_COMMAND
-   */
+  /** Converts for e.g. AutoValue__CreateProductCommand -> CREATE_PRODUCT_COMMAND */
   @JsonProperty("commandType")
   public String commandType() {
     return CaseFormat.UPPER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, this.getClass().getSimpleName())

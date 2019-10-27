@@ -1,7 +1,7 @@
 package com.kgregorczyk.store.cqrs.command;
 
 import com.kgregorczyk.store.cqrs.aggregate.Aggregate;
-import com.kgregorczyk.store.cqrs.event.DomainEventBus;
+import com.kgregorczyk.store.cqrs.event.DomainEventSynchronizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,12 +9,12 @@ public abstract class DomainCommandHandler<A extends Aggregate<A, ?>, C extends 
 
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
   private final DomainCommandPublisher<A> commandPublisher;
-  private final DomainEventBus domainEventBus;
+  private final DomainEventSynchronizer domainEventSynchronizer;
 
   protected DomainCommandHandler(
-      DomainCommandPublisher<A> commandPublisher, DomainEventBus domainEventBus) {
+      DomainCommandPublisher<A> commandPublisher, DomainEventSynchronizer domainEventSynchronizer) {
     this.commandPublisher = commandPublisher;
-    this.domainEventBus = domainEventBus;
+    this.domainEventSynchronizer = domainEventSynchronizer;
   }
 
   public void handle(C command) {
@@ -25,7 +25,7 @@ public abstract class DomainCommandHandler<A extends Aggregate<A, ?>, C extends 
       throw new DomainCommandException(
           String.format("Validation exception for [%s] command", command), e);
     }
-    domainEventBus.record(command.correlationId());
+    domainEventSynchronizer.record(command.correlationId());
     commandPublisher.publish(getCommandTopic(), command);
   }
 
