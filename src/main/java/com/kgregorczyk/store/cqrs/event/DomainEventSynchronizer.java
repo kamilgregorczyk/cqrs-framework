@@ -14,28 +14,28 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class DomainEventSynchronizer {
-  private static final Map<UUID, Object> CORRELATION_ID_TO_QUEUE = new ConcurrentHashMap<>();
+  private static final Map<UUID, Object> CORRELATION_ID_TO_LOCK = new ConcurrentHashMap<>();
 
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
-  private final RedissonClient redisson;
   private final RTopic topic;
 
   @Autowired
   DomainEventSynchronizer(RedissonClient redisson) {
-    this.redisson = redisson;
     this.topic = redisson.getTopic("domain-events");
     topic.addListener(
         UUID.class,
         (channel, correlationId) -> {
-          final var waitObject = getOrCreateWaitObject(correlationId);
-          synchronized (waitObject) {
-            waitObject.notifyAll();
+          if (CORRELATION_ID_TO_LOCK.containsKey(correlationId)) {
+            final var waitObject = CORRELATION_ID_TO_LOCK.get(correlationId);
+            synchronized (waitObject) {
+              waitObject.notifyAll();
+            }
           }
         });
   }
 
   public void record(UUID correlationId) {
-    getOrCreateWaitObject(correlationId);
+    CORRELATION_ID_TO_LOCK.computeIfAbsent(correlationId, (id) -> new Object());
   }
 
   public void waitOneSecondFor(UUID correlationId) {
@@ -43,25 +43,22 @@ public class DomainEventSynchronizer {
   }
 
   public void waitFor(UUID correlationId, int seconds) {
-    final var waitObject = getOrCreateWaitObject(correlationId);
-
-    synchronized (waitObject) {
-      try {
-        waitObject.wait(TimeUnit.SECONDS.toMillis(seconds));
-      } catch (InterruptedException e) {
-        log.error("Failed to wait for event correlationId=[" + correlationId + "]", e);
-        throw new UncheckedExecutionException(e);
-      } finally {
-        CORRELATION_ID_TO_QUEUE.remove(correlationId);
-      }
-    }
+    CORRELATION_ID_TO_LOCK.computeIfPresent(
+        correlationId,
+        ((uuid, waitObject) -> {
+          synchronized (waitObject) {
+            try {
+              waitObject.wait(TimeUnit.SECONDS.toMillis(seconds));
+            } catch (InterruptedException e) {
+              log.error("Failed to wait for event correlationId=[" + correlationId + "]", e);
+              throw new UncheckedExecutionException(e);
+            }
+            return null;
+          }
+        }));
   }
 
   public void notify(UUID correlationId) {
     topic.publish(correlationId);
-  }
-
-  private Object getOrCreateWaitObject(UUID correlationId) {
-    return CORRELATION_ID_TO_QUEUE.computeIfAbsent(correlationId, (id) -> new Object());
   }
 }

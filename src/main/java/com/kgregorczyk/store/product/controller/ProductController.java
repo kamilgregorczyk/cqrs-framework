@@ -21,6 +21,9 @@ import com.kgregorczyk.store.product.command.UpdateProductNameCommandHandler;
 import com.kgregorczyk.store.product.command.UpdateProductPriceCommandHandler;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -66,15 +69,29 @@ public class ProductController {
 
   @PostMapping("")
   public ProductDTO createProduct(@RequestBody @Valid CreateProductDTO dto) {
-    var createCommand =
-        aCreateProductCommand()
-            .id(Id.random(ProductAggregate.class))
-            .name(dto.name())
-            .price(dto.price())
-            .build();
-    createProductCommandHandler.handle(createCommand);
-    domainEventSynchronizer.waitOneSecondFor(createCommand.correlationId());
-    return fetchProduct(createCommand.id());
+    var executor = Executors.newFixedThreadPool(10);
+    var latch = new CountDownLatch(5000);
+    IntStream.range(0, 5000)
+        .forEach(
+            i -> {
+              executor.submit(
+                  () -> {
+                    var createCommand =
+                        aCreateProductCommand()
+                            .id(Id.random(ProductAggregate.class))
+                            .name(dto.name())
+                            .price(dto.price())
+                            .build();
+                    createProductCommandHandler.handle(createCommand);
+                    latch.countDown();
+                  });
+            });
+    try {
+      latch.await();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
+    return null;
   }
 
   @PutMapping("/{id}")

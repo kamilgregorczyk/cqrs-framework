@@ -9,10 +9,8 @@ import com.kgregorczyk.store.cqrs.aggregate.Id;
 import com.kgregorczyk.store.cqrs.mongo.EventDocument;
 import com.kgregorczyk.store.cqrs.mongo.EventDocumentRepository;
 import com.mongodb.BasicDBObject;
-import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,23 +48,11 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
       log.info("No change for aggregate=[{}]", aggregate.id());
       notifyOnRejectedEvents(aggregate.rejectedEvents());
     } else {
-      final var alreadyPersistedEvents = findAlreadyPersistedEvents(aggregate);
-      if (!alreadyPersistedEvents.isEmpty()) {
-        log.error("Found already persisted events for aggregate=[{}]", aggregate.id());
-        notifyOnRejectedEvents(alreadyPersistedEvents);
-      } else {
-        persistEvents(aggregate.id(), aggregate.pendingEvents());
-        domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.pendingEvents());
-      }
+      persistEvents(aggregate.id(), aggregate.pendingEvents());
+      domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.pendingEvents());
     }
     aggregate.flushEvents();
     return aggregate;
-  }
-
-  private List<DomainEvent<A>> findAlreadyPersistedEvents(A aggregate) {
-    return aggregate.pendingEvents().stream()
-        .filter(event -> eventRepository.existsByCorrelationId(event.correlationId().toString()))
-        .collect(Collectors.toUnmodifiableList());
   }
 
   @Override

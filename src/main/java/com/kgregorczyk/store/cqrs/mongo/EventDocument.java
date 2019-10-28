@@ -15,7 +15,7 @@ public class EventDocument {
 
   @Indexed private String aggregateId;
 
-  @Indexed private String correlationId;
+  @Indexed(unique = true) private String correlationId;
 
   private String eventType;
 

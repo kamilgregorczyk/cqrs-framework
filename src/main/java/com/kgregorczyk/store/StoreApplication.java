@@ -109,6 +109,7 @@ public class StoreApplication {
           ConsumerFactory<UUID, DomainCommand<ProductAggregate>> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<UUID, DomainCommand<ProductAggregate>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConcurrency(5);
     factory.setConsumerFactory(consumerFactory);
     return factory;
   }
@@ -127,6 +128,7 @@ public class StoreApplication {
           ConsumerFactory<UUID, DomainEvent<ProductAggregate>> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<UUID, DomainEvent<ProductAggregate>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConcurrency(5);
     factory.setConsumerFactory(consumerFactory);
     return factory;
   }

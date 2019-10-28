@@ -1,5 +1,5 @@
 server:
-  port: 0
+  port: 8090
 
 spring:
   kafka:
@@ -15,4 +15,4 @@ spring:
 
 logging:
   level:
-    com.kgregorczyk: INFO
+    com.kgregorczyk: DEBUG
