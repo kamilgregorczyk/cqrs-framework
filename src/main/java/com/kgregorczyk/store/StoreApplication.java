@@ -26,6 +26,8 @@ import java.util.UUID;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -129,6 +131,11 @@ public class StoreApplication {
     return factory;
   }
 
+  @Bean
+  RedissonClient redissonClient(){
+    return Redisson.create();
+  }
+
   private Map<String, Object> producerConfig() {
     Map<String, Object> config = new HashMap<>();
     config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -156,7 +163,7 @@ public class StoreApplication {
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, UUIDDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, TrustedJsonDeserializer.class);
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, String.format("product-service(%s)", randomUUID()));
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, "product-service");
 
     return props;
   }

@@ -5,17 +5,34 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import org.redisson.api.RTopic;
+import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Scope;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-@Scope
 public class DomainEventSynchronizer {
   private static final Map<UUID, Object> CORRELATION_ID_TO_QUEUE = new ConcurrentHashMap<>();
 
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
+  private final RedissonClient redisson;
+  private final RTopic topic;
+
+  @Autowired
+  DomainEventSynchronizer(RedissonClient redisson) {
+    this.redisson = redisson;
+    this.topic = redisson.getTopic("domain-events");
+    topic.addListener(
+        UUID.class,
+        (channel, correlationId) -> {
+          final var waitObject = getOrCreateWaitObject(correlationId);
+          synchronized (waitObject) {
+            waitObject.notifyAll();
+          }
+        });
+  }
 
   public void record(UUID correlationId) {
     getOrCreateWaitObject(correlationId);
@@ -27,6 +44,7 @@ public class DomainEventSynchronizer {
 
   public void waitFor(UUID correlationId, int seconds) {
     final var waitObject = getOrCreateWaitObject(correlationId);
+
     synchronized (waitObject) {
       try {
         waitObject.wait(TimeUnit.SECONDS.toMillis(seconds));
@@ -40,14 +58,7 @@ public class DomainEventSynchronizer {
   }
 
   public void notify(UUID correlationId) {
-    CORRELATION_ID_TO_QUEUE.computeIfPresent(
-        correlationId,
-        (id, obj) -> {
-          synchronized (obj) {
-            obj.notifyAll();
-          }
-          return obj;
-        });
+    topic.publish(correlationId);
   }
 
   private Object getOrCreateWaitObject(UUID correlationId) {

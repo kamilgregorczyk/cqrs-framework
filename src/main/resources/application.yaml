@@ -10,7 +10,7 @@ spring:
       uri: mongodb://localhost:27017/test?retryWrites=true&w=majority
 
   application:
-    name: product-service-app
+    name: product-service
 
 
 logging:
