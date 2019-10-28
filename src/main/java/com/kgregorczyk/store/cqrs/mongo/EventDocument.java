@@ -2,7 +2,6 @@ package com.kgregorczyk.store.cqrs.mongo;
 
 import com.mongodb.BasicDBObject;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -16,7 +15,7 @@ public class EventDocument {
 
   @Indexed private String aggregateId;
 
-  private String correlationId;
+  @Indexed private String correlationId;
 
   private String eventType;
 

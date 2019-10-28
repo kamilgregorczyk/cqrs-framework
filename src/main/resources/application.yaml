@@ -1,5 +1,6 @@
 server:
-  port: 8080
+  port: 0
+
 spring:
   kafka:
     bootstrap-servers: localhost:9092
@@ -7,10 +8,11 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/test?retryWrites=true&w=majority
-  autoconfigure:
-    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+  application:
+    name: product-service-app
 
 
 logging:
   level:
-    com.kgregorczyk: DEBUG
+    com.kgregorczyk: INFO

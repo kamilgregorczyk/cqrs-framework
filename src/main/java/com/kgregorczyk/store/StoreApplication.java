@@ -53,7 +53,7 @@ public class StoreApplication {
   /** Events */
   @Bean(ProductAggregate.EVENT_TOPIC)
   NewTopic productEventTopic() {
-    return new NewTopic(ProductAggregate.EVENT_TOPIC, 5, (short) 1);
+    return new NewTopic(ProductAggregate.EVENT_TOPIC, 3, (short) 1);
   }
 
   @Bean
@@ -75,7 +75,7 @@ public class StoreApplication {
   /** Commands */
   @Bean(ProductAggregate.COMMAND_TOPIC)
   NewTopic productCommandTopic() {
-    return new NewTopic(ProductAggregate.COMMAND_TOPIC, 30, (short) 1);
+    return new NewTopic(ProductAggregate.COMMAND_TOPIC, 3, (short) 1);
   }
 
   @Bean
@@ -95,8 +95,7 @@ public class StoreApplication {
   }
 
   @Bean
-  @ConditionalOnMissingBean(name = "domainCommandContainerFactory")
-  public ConsumerFactory<UUID, DomainCommand<ProductAggregate>> domainCommandConsumerFactory(
+  public ConsumerFactory<UUID, DomainCommand<ProductAggregate>> kafkaListenerContainerFactory(
       TrustedJsonDeserializer<DomainCommand<ProductAggregate>> jsonDeserializer) {
     return new DefaultKafkaConsumerFactory<>(
         commandConsumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
@@ -117,7 +116,7 @@ public class StoreApplication {
   public ConsumerFactory<UUID, DomainEvent<ProductAggregate>> domainEventConsumerFactory(
       TrustedJsonDeserializer<DomainEvent<ProductAggregate>> jsonDeserializer) {
     return new DefaultKafkaConsumerFactory<>(
-        commandConsumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
+        eventConsumerConfigs(), new UUIDDeserializer(), jsonDeserializer);
   }
 
   @Bean("domainEventContainerFactory")
@@ -126,7 +125,6 @@ public class StoreApplication {
           ConsumerFactory<UUID, DomainEvent<ProductAggregate>> consumerFactory) {
     ConcurrentKafkaListenerContainerFactory<UUID, DomainEvent<ProductAggregate>> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConcurrency(5);
     factory.setConsumerFactory(consumerFactory);
     return factory;
   }
@@ -157,7 +155,7 @@ public class StoreApplication {
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, UUIDDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, TrustedJsonDeserializer.class);
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
     props.put(ConsumerConfig.GROUP_ID_CONFIG, String.format("product-service(%s)", randomUUID()));
 
     return props;

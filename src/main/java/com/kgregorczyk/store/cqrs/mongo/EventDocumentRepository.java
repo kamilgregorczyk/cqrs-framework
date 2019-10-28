@@ -8,4 +8,6 @@ public interface EventDocumentRepository extends MongoRepository<EventDocument, 
   Stream<EventDocument> streamAllByAggregateIdOrderByCreatedAt(String id);
 
   Stream<EventDocument> streamAllByAggregateType(String eventType);
+
+  boolean existsByCorrelationId(String correlationId);
 }

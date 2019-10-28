@@ -9,8 +9,10 @@ import com.kgregorczyk.store.cqrs.aggregate.Id;
 import com.kgregorczyk.store.cqrs.mongo.EventDocument;
 import com.kgregorczyk.store.cqrs.mongo.EventDocumentRepository;
 import com.mongodb.BasicDBObject;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,18 +27,18 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
   private final Logger log = LoggerFactory.getLogger(getClass().getName());
 
   private final DomainEventPublisher<A> domainEventPublisher;
-  private final EventDocumentRepository eventDocumentRepository;
+  private final EventDocumentRepository eventRepository;
   private final DomainEventSynchronizer domainEventSynchronizer;
   private final ObjectMapper objectMapper;
 
   @Autowired
   public MongoDomainEventRepository(
       DomainEventPublisher<A> domainEventPublisher,
-      EventDocumentRepository eventDocumentRepository,
+      EventDocumentRepository eventRepository,
       DomainEventSynchronizer domainEventSynchronizer,
       ObjectMapper objectMapper) {
     this.domainEventPublisher = domainEventPublisher;
-    this.eventDocumentRepository = eventDocumentRepository;
+    this.eventRepository = eventRepository;
     this.domainEventSynchronizer = domainEventSynchronizer;
     this.objectMapper = objectMapper;
   }
@@ -48,16 +50,28 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
       log.info("No change for aggregate=[{}]", aggregate.id());
       notifyOnRejectedEvents(aggregate.rejectedEvents());
     } else {
-      persistEvents(aggregate.id(), aggregate.pendingEvents());
-      domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.pendingEvents());
+      final var alreadyPersistedEvents = findAlreadyPersistedEvents(aggregate);
+      if (!alreadyPersistedEvents.isEmpty()) {
+        log.error("Found already persisted events for aggregate=[{}]", aggregate.id());
+        notifyOnRejectedEvents(alreadyPersistedEvents);
+      } else {
+        persistEvents(aggregate.id(), aggregate.pendingEvents());
+        domainEventPublisher.publish(aggregate.getEventTopic(), aggregate.pendingEvents());
+      }
     }
     aggregate.flushEvents();
     return aggregate;
   }
 
+  private List<DomainEvent<A>> findAlreadyPersistedEvents(A aggregate) {
+    return aggregate.pendingEvents().stream()
+        .filter(event -> eventRepository.existsByCorrelationId(event.correlationId().toString()))
+        .collect(Collectors.toUnmodifiableList());
+  }
+
   @Override
   public Stream<DomainEvent<A>> find(Id<A> id) {
-    return eventDocumentRepository
+    return eventRepository
         .streamAllByAggregateIdOrderByCreatedAt(id.uuid().toString())
         .map(
             eventDocument ->
@@ -83,7 +97,7 @@ public class MongoDomainEventRepository<A extends Aggregate<A, ?>>
                   .setEventType(event.getClass().getTypeName())
                   .setCreatedAt(event.createdAt())
                   .setEventData(objectMapper.convertValue(event, BasicDBObject.class));
-          eventDocumentRepository.save(mappedEvent);
+          eventRepository.save(mappedEvent);
         });
     log.debug("Took [{} ms] to save events", watch.stop().elapsed(TimeUnit.MILLISECONDS));
     log.info("Persisted [{}] events for aggregate=[{}]", pendingEvents.size(), id);
