@@ -21,11 +21,9 @@ import com.kgregorczyk.store.product.command.UpdateProductNameCommandHandler;
 import com.kgregorczyk.store.product.command.UpdateProductPriceCommandHandler;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.stream.IntStream;
 import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +31,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController()
 @RequestMapping("/posts")
@@ -69,29 +68,15 @@ public class ProductController {
 
   @PostMapping("")
   public ProductDTO createProduct(@RequestBody @Valid CreateProductDTO dto) {
-    var executor = Executors.newFixedThreadPool(10);
-    var latch = new CountDownLatch(5000);
-    IntStream.range(0, 5000)
-        .forEach(
-            i -> {
-              executor.submit(
-                  () -> {
-                    var createCommand =
-                        aCreateProductCommand()
-                            .id(Id.random(ProductAggregate.class))
-                            .name(dto.name())
-                            .price(dto.price())
-                            .build();
-                    createProductCommandHandler.handle(createCommand);
-                    latch.countDown();
-                  });
-            });
-    try {
-      latch.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-    return null;
+    var createCommand =
+        aCreateProductCommand()
+            .id(Id.random(ProductAggregate.class))
+            .name(dto.name())
+            .price(dto.price())
+            .build();
+    createProductCommandHandler.handle(createCommand);
+    domainEventSynchronizer.waitFor(createCommand.correlationId());
+    return fetchProduct(createCommand.id());
   }
 
   @PutMapping("/{id}")
@@ -116,7 +101,7 @@ public class ProductController {
       updateProductPriceCommandHandler.handle(command);
       lastCorrelationId = command.correlationId();
     }
-    ofNullable(lastCorrelationId).ifPresent(domainEventSynchronizer::waitOneSecondFor);
+    ofNullable(lastCorrelationId).ifPresent(domainEventSynchronizer::waitFor);
     return fetchProduct(Id.from(ProductAggregate.class, id));
   }
 
@@ -124,6 +109,10 @@ public class ProductController {
     final var product =
         ofAll(eventRepository.find(id))
             .foldLeft(new ProductAggregate(), (ProductAggregate::applyEvent));
+    if (product.persistedEvents().isEmpty()) {
+      throw new ResponseStatusException(
+          HttpStatus.NOT_FOUND, String.format("Product=%s not found", id.uuid()));
+    }
     return aProductDTO()
         .id(product.id().uuid())
         .name(product.name())
